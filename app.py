@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from preprocess_input import preprocess_input
 
 # Charger le modèle et les colonnes
-MODEL_PATH = "model.pkl"
+MODEL_PATH = "model/model.pkl"
 FEATURES_PATH = "feature_columns.json"
 
 model = joblib.load(MODEL_PATH)
