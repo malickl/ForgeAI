@@ -1,0 +1,24 @@
+# Environnement virtuel
+.venv/
+venv/
+env/
+
+# Cache et fichiers temporaires
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.DS_Store
+*.log
+
+# Modèles lourds
+*.pkl
+
+# Fichiers système / IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Garder les fichiers modèles
+!models/model.pkl
+!models/tfidf.pkl
