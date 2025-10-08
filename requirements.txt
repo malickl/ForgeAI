@@ -1,7 +1,8 @@
 fastapi
 uvicorn
 pandas
+numpy
 scikit-learn
-xgboost
-scipy
 joblib
+mistralai
+python-dotenv
