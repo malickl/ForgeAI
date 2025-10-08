@@ -39,22 +39,25 @@ class TeacherInput(BaseModel):
 
 # --- Création de l'app ---
 app = FastAPI(
-    title="FORGE_AI Predictor",
-    description="API de prédiction de satisfaction — sortie : prédiction uniquement",
-    version="1.0.3"
+    title="API de prédiction de satisfaction",
+    description="Prédit la note moyenne d’un cours à venir en fonction du profil enseignant et du thème détecté par Mistral",
+    version="1.0.1"
 )
 
-# --- Groupe de routes /api ---
-from fastapi import APIRouter
+@app.get("/")
+def home():
+    return {"message": "Bienvenue sur l’API FORGE_AI 🚀"}
 
-router = APIRouter(prefix="/api")
-
-@router.post("/predict")
+@app.post("/predict")
 def predict(input_data: TeacherInput):
-    """Retourne uniquement la prédiction de note."""
+    """
+    Reçoit un JSON (profil enseignant + cours actuel),
+    appelle Mistral pour détecter le thème,
+    puis prédit la note du cours avec le modèle.
+    """
     df = preprocess_input([input_data.dict()])
 
-    # Encodage identique à l’entraînement
+    # Encodage identique à l'entraînement
     df_cat = pd.get_dummies(df[["highest_degree", "course_theme"]], drop_first=False, dtype=int)
     df_num = df.drop(columns=["highest_degree", "course_theme", "prof_id", "course_title"], errors="ignore")
     X = pd.concat([df_num, df_cat], axis=1)
@@ -66,11 +69,8 @@ def predict(input_data: TeacherInput):
 
     pred = model.predict(X)[0]
 
-    return round(float(pred), 3)
-
-# Enregistrer le routeur
-app.include_router(router)
-
-@app.get("/")
-def home():
-    return {"message": "Bienvenue sur l’API FORGE_AI 🚀 — endpoint principal : /api/predict"}
+    return {
+        "predicted_numberOfStars": round(float(pred), 3),
+        "course_theme_detected": df["course_theme"].iloc[0],
+        "message": "✅ Prédiction effectuée avec succès"
+    }

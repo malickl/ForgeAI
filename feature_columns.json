@@ -1,0 +1,22 @@
+[
+  "nb_diplomas",
+  "nb_experiences",
+  "nb_courses_taught",
+  "avg_past_stars",
+  "std_past_stars",
+  "best_past_star",
+  "worst_past_star",
+  "performance_trend",
+  "highest_degree_doctorat",
+  "highest_degree_master",
+  "course_theme_Algorithmes & structures de données",
+  "course_theme_Architecture logicielle, cloud & sécurité",
+  "course_theme_Bases de données & SQL",
+  "course_theme_Data science, analyse & data mining",
+  "course_theme_Initiation & bases de programmation",
+  "course_theme_Intelligence artificielle & deep learning",
+  "course_theme_Java/C++ & mobile (Android, iOS, Flutter)",
+  "course_theme_Programmation orientée objet (POO/OOP)",
+  "course_theme_Python (langage & écosystème, dont web Python)",
+  "course_theme_Web front-end & frameworks (HTML/CSS/JS, React/Angular)"
+]
