@@ -85,10 +85,24 @@ async def predict_rating(data: ProfessorData):
 
         # Adapter les données
         adapted = adapt_input(body)
+        print("➡️ Features calculées (adapted input) :")
+        print(json.dumps(adapted, indent=2, ensure_ascii=False))
+
+        # Afficher les features attendues par le modèle
+        model_features = list(model.feature_names_in_)
+        print("➡️ Features attendues par le modèle :")
+        print(model_features)
+
         df = pd.DataFrame([adapted])
 
         # Prédire
         prediction = model.predict(df)[0]
+        print(f"✅ Prédiction brute obtenue : {prediction}")
+        print("🚀 Prédiction envoyée à la plateforme de test.\n")
+
+        # Log clair expliquant la note prédite
+        print(f"🎯 Note prédite de satisfaction : {round(float(prediction), 2)}")
+
         return {"predicted_satisfaction": round(float(prediction), 2)}
 
     except Exception as e:
