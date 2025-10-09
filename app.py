@@ -38,14 +38,17 @@ def adapt_input(body):
     has_secondary = int(any("second" in lvl for lvl in levels))
 
     # ---- Expériences ----
-    all_exp_titles = " ".join(e.get("title", "").lower() for e in exps)
-    has_teaching_exp = int(any(k in all_exp_titles for k in ["prof", "enseign", "formateur"]))
-    has_industry_exp = int(any(k in all_exp_titles for k in ["dev", "engineer", "ingénieur", "consult", "industrie"]))
-    has_management_exp = int(any(k in all_exp_titles for k in ["chef", "lead", "manager", "responsable"]))
-    has_academic_exp = int(any(k in all_exp_titles for k in ["recherche", "thèse", "doctorat", "universit"]))
+    all_exp_text = " ".join(
+        f"{e.get('title', '')} {e.get('description', '')}".lower()
+        for e in exps
+    )
+    has_teaching_exp = int(any(k in all_exp_text for k in ["prof", "enseign", "formateur"]))
+    has_industry_exp = int(any(k in all_exp_text for k in ["dev", "engineer", "ingénieur", "consult", "industrie"]))
+    has_management_exp = int(any(k in all_exp_text for k in ["chef", "lead", "manager", "responsable"]))
+    has_academic_exp = int(any(k in all_exp_text for k in ["recherche", "thèse", "doctorat", "universit"]))
 
     # ---- Moyenne et nombre de cours passés ----
-    past_ratings = [c.get("numberOfStars", None) for c in past_courses if c.get("numberOfStars") is not None]
+    past_ratings = [c.get("numberOfStars") for c in past_courses if c.get("numberOfStars") is not None]
     teacher_mean_excl = float(sum(past_ratings) / len(past_ratings)) if past_ratings else 0
     teacher_course_count = len(past_courses)
 
@@ -56,24 +59,28 @@ def adapt_input(body):
 
     # ---- Nouveau cours ----
     course_title = course.get("title", "").strip().lower()
+    course_description = course.get("description", "").strip().lower()
+    full_course_text = f"{course_title} {course_description}".strip()
 
-    # ---- Similarité entre cours futur et cours passés ----
+    # ---- Similarité texte entre cours futurs et passés ----
     similarity_mean = 0
-    if past_courses and course_title:
-        past_titles = [c.get("title", "").lower() for c in past_courses if c.get("title")]
-        all_titles = past_titles + [course_title]
+    if past_courses and full_course_text:
+        past_texts = [
+            f"{c.get('title', '').lower()} {c.get('description', '').lower()}"
+            for c in past_courses
+            if c.get("title") or c.get("description")
+        ]
+        all_texts = past_texts + [full_course_text]
 
-        vectorizer = TfidfVectorizer().fit(all_titles)
-        tfidf = vectorizer.transform(all_titles)
+        vectorizer = TfidfVectorizer().fit(all_texts)
+        tfidf = vectorizer.transform(all_texts)
         sim_matrix = cosine_similarity(tfidf)
-
-        # Similarité du dernier (cours futur) avec tous les anciens
         sims = sim_matrix[-1][:-1]
         similarity_mean = float(np.mean(sims)) if len(sims) > 0 else 0
 
-    # ---- Sortie finale cohérente avec le modèle ----
+    # ---- Sortie cohérente avec le modèle enrichi ----
     return {
-        "course_title": course_title,
+        "course_title": full_course_text,
         "desc_len_words": desc_len_words,
         "n_diplomas": n_diplomas,
         "n_experiences": n_experiences,
@@ -124,7 +131,7 @@ async def predict_rating(data: ProfessorData):
         # Log clair expliquant la note prédite
         print(f"🎯 Note prédite de satisfaction : {round(float(prediction), 2)}")
 
-        return {"predicted_satisfaction": round(float(prediction), 2)}
+        return {"gradeAverage": round(float(prediction), 2)}
 
     except Exception as e:
         print("❌ Erreur pendant la prédiction :", e)
