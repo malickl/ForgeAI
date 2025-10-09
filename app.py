@@ -1,16 +1,17 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from pydantic import BaseModel
-# ===== Pydantic Models =====
-class ProfessorData(BaseModel):
-    professor: dict
-    course: dict
-
 import joblib
 import pandas as pd
 import json
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+
+# ===== Pydantic Models =====
+class ProfessorData(BaseModel):
+    professor: dict
+    course: dict
+
 
 # ===== Initialisation =====
 app = FastAPI(title="Satisfaction Prediction API")
@@ -20,7 +21,7 @@ MODEL_PATH = "models/model_best.joblib"
 model = joblib.load(MODEL_PATH)
 
 
-# ===== Fonction d’adaptation améliorée =====
+# ===== Fonction d’adaptation corrigée =====
 def adapt_input(body):
     prof = body.get("professor", {})
     course = body.get("course", {})
@@ -58,34 +59,13 @@ def adapt_input(body):
     n_experiences = len(exps)
 
     # ---- Nouveau cours ----
-    course_title = course.get("title", "").strip().lower()
-    course_description = course.get("description", "").strip().lower()
-    full_course_text = f"{course_title} {course_description}".strip()
+    course_title = (course.get("title", "") + " " + course.get("description", "")).strip().lower()
 
-    # ---- Similarité texte entre cours futurs et passés ----
-    similarity_mean = 0
-    if past_courses and full_course_text:
-        past_texts = [
-            f"{c.get('title', '').lower()} {c.get('description', '').lower()}"
-            for c in past_courses
-            if c.get("title") or c.get("description")
-        ]
-        all_texts = past_texts + [full_course_text]
-
-        vectorizer = TfidfVectorizer().fit(all_texts)
-        tfidf = vectorizer.transform(all_texts)
-        sim_matrix = cosine_similarity(tfidf)
-        sims = sim_matrix[-1][:-1]
-        similarity_mean = float(np.mean(sims)) if len(sims) > 0 else 0
-
-    # ---- Sortie cohérente avec le modèle enrichi ----
+    # ✅ Sortie corrigée : mêmes colonnes, même ordre que le modèle
     return {
-        "course_title": full_course_text,
         "desc_len_words": desc_len_words,
         "n_diplomas": n_diplomas,
         "n_experiences": n_experiences,
-        "teacher_mean_excl": teacher_mean_excl,
-        "teacher_course_count": teacher_course_count,
         "has_master": has_master,
         "has_licence": has_licence,
         "has_doctorat": has_doctorat,
@@ -95,7 +75,9 @@ def adapt_input(body):
         "has_industry_exp": has_industry_exp,
         "has_management_exp": has_management_exp,
         "has_academic_exp": has_academic_exp,
-        "similarity_mean": similarity_mean
+        "teacher_mean_excl": teacher_mean_excl,
+        "teacher_course_count": teacher_course_count,
+        "course_title": course_title
     }
 
 
@@ -106,7 +88,6 @@ async def predict_rating(data: ProfessorData):
         # Lire le JSON brut reçu
         body = data.dict()
 
-        # Log local (utile pour Render)
         print("\n===== 📥 Données reçues =====")
         print(json.dumps(body, indent=2, ensure_ascii=False))
         print("=============================\n")
@@ -116,20 +97,16 @@ async def predict_rating(data: ProfessorData):
         print("➡️ Features calculées (adapted input) :")
         print(json.dumps(adapted, indent=2, ensure_ascii=False))
 
-        # Afficher les features attendues par le modèle
-        model_features = list(model.feature_names_in_)
-        print("➡️ Features attendues par le modèle :")
-        print(model_features)
-
+        # Créer DataFrame dans le bon ordre
         df = pd.DataFrame([adapted])
+        df = df.reindex(columns=model.feature_names_in_, fill_value=0)
+
+        print("\n➡️ Colonnes envoyées au modèle :")
+        print(list(df.columns))
 
         # Prédire
         prediction = model.predict(df)[0]
-        print(f"✅ Prédiction brute obtenue : {prediction}")
-        print("🚀 Prédiction envoyée à la plateforme de test.\n")
-
-        # Log clair expliquant la note prédite
-        print(f"🎯 Note prédite de satisfaction : {round(float(prediction), 2)}")
+        print(f"✅ Prédiction brute : {prediction}")
 
         return {"gradeAverage": round(float(prediction), 2)}
 
