@@ -1,5 +1,10 @@
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
+# ===== Pydantic Models =====
+class ProfessorData(BaseModel):
+    professor: dict
+    course: dict
+
 import joblib
 import pandas as pd
 import json
@@ -11,43 +16,90 @@ app = FastAPI(title="Satisfaction Prediction API")
 MODEL_PATH = "models/model_best.joblib"
 model = joblib.load(MODEL_PATH)
 
-# ===== Schéma d’entrée =====
-class CourseInput(BaseModel):
-    course_title: str
-    desc_len_words: float
-    n_diplomas: int
-    n_experiences: int
-    teacher_mean_excl: float
-    teacher_course_count: int
-    has_master: int
-    has_licence: int
-    has_doctorat: int
-    has_certif: int
-    has_secondary: int
-    has_teaching_exp: int
-    has_industry_exp: int
-    has_management_exp: int
-    has_academic_exp: int
+
+# ===== Fonction d’adaptation =====
+def adapt_input(body):
+    prof = body.get("professor", {})
+    course = body.get("course", {})
+
+    diplomas = prof.get("diplomas", [])
+    exps = prof.get("experiences", [])
+    past_courses = prof.get("pastCourses", [])
+
+    # ---- Diplômes ----
+    levels = [d.get("level", "").lower() for d in diplomas]
+    has_master = int(any("master" in lvl for lvl in levels))
+    has_licence = int(any("licence" in lvl or "bachelor" in lvl for lvl in levels))
+    has_doctorat = int(any("doctor" in lvl or "phd" in lvl for lvl in levels))
+    has_certif = int(any("certif" in lvl for lvl in levels))
+    has_secondary = int(any("second" in lvl for lvl in levels))
+
+    # ---- Expériences ----
+    all_exp_titles = " ".join(e.get("title", "").lower() for e in exps)
+    has_teaching_exp = int(any(k in all_exp_titles for k in ["prof", "enseign", "formateur"]))
+    has_industry_exp = int(any(k in all_exp_titles for k in ["dev", "engineer", "ingénieur", "consult", "industrie"]))
+    has_management_exp = int(any(k in all_exp_titles for k in ["chef", "lead", "manager", "responsable"]))
+    has_academic_exp = int(any(k in all_exp_titles for k in ["recherche", "thèse", "doctorat", "universit"]))
+
+    # ---- Moyenne des anciens cours ----
+    past_ratings = [c.get("numberOfStars", None) for c in past_courses if c.get("numberOfStars") is not None]
+    teacher_mean_excl = float(sum(past_ratings) / len(past_ratings)) if past_ratings else 0
+    teacher_course_count = len(past_courses)
+
+    # ---- Données cours actuel ----
+    course_title = course.get("title", "")
+    desc_len_words = len(prof.get("description", "").split())
+    n_diplomas = len(diplomas)
+    n_experiences = len(exps)
+
+    return {
+        "course_title": course_title,
+        "desc_len_words": desc_len_words,
+        "n_diplomas": n_diplomas,
+        "n_experiences": n_experiences,
+        "teacher_mean_excl": teacher_mean_excl,
+        "teacher_course_count": teacher_course_count,
+        "has_master": has_master,
+        "has_licence": has_licence,
+        "has_doctorat": has_doctorat,
+        "has_certif": has_certif,
+        "has_secondary": has_secondary,
+        "has_teaching_exp": has_teaching_exp,
+        "has_industry_exp": has_industry_exp,
+        "has_management_exp": has_management_exp,
+        "has_academic_exp": has_academic_exp,
+    }
+
 
 # ===== Endpoint principal =====
 @app.post("/api/predict")
-async def predict_rating(request: Request):
+async def predict_rating(data: ProfessorData):
     try:
-        data_json = await request.json()
-        print("Received JSON:", json.dumps(data_json, indent=2))
-        data = CourseInput(**data_json)
-        # Convertir les données en DataFrame
-        df = pd.DataFrame([data.dict()])
+        # Lire le JSON brut reçu
+        body = data.dict()
 
-        # Prédiction avec le modèle
+        # Log local (utile pour Render)
+        print("\n===== 📥 Données reçues =====")
+        print(json.dumps(body, indent=2, ensure_ascii=False))
+        print("=============================\n")
+
+        # Adapter les données
+        adapted = adapt_input(body)
+        df = pd.DataFrame([adapted])
+
+        # Prédire
         prediction = model.predict(df)[0]
-
-        # Retourner la note prédite
         return {"predicted_satisfaction": round(float(prediction), 2)}
+
     except Exception as e:
-        return {"error": f"Prediction failed: {str(e)}"}
+        print("❌ Erreur pendant la prédiction :", e)
+        return {"error": str(e)}
+
 
 # ===== Endpoint test =====
 @app.get("/")
 def root():
-    return {"message": "Bienvenue sur l’API de prédiction de satisfaction 🎯"}
+    return {
+        "message": "Bienvenue sur l’API de prédiction de satisfaction 🎯",
+        "usage": "POST /api/predict avec le JSON complet d’un professeur et d’un cours",
+    }
