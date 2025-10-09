@@ -29,7 +29,7 @@ class CourseInput(BaseModel):
     has_academic_exp: int
 
 # ===== Endpoint principal =====
-@app.post("/predict")
+@app.post("/api/predict")
 def predict_rating(data: CourseInput):
     # Convertir les données en DataFrame
     df = pd.DataFrame([data.dict()])
