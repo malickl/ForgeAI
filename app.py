@@ -8,6 +8,9 @@ class ProfessorData(BaseModel):
 import joblib
 import pandas as pd
 import json
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 # ===== Initialisation =====
 app = FastAPI(title="Satisfaction Prediction API")
@@ -17,7 +20,7 @@ MODEL_PATH = "models/model_best.joblib"
 model = joblib.load(MODEL_PATH)
 
 
-# ===== Fonction d’adaptation =====
+# ===== Fonction d’adaptation améliorée =====
 def adapt_input(body):
     prof = body.get("professor", {})
     course = body.get("course", {})
@@ -41,17 +44,34 @@ def adapt_input(body):
     has_management_exp = int(any(k in all_exp_titles for k in ["chef", "lead", "manager", "responsable"]))
     has_academic_exp = int(any(k in all_exp_titles for k in ["recherche", "thèse", "doctorat", "universit"]))
 
-    # ---- Moyenne des anciens cours ----
+    # ---- Moyenne et nombre de cours passés ----
     past_ratings = [c.get("numberOfStars", None) for c in past_courses if c.get("numberOfStars") is not None]
     teacher_mean_excl = float(sum(past_ratings) / len(past_ratings)) if past_ratings else 0
     teacher_course_count = len(past_courses)
 
-    # ---- Données cours actuel ----
-    course_title = course.get("title", "")
+    # ---- Description du prof ----
     desc_len_words = len(prof.get("description", "").split())
     n_diplomas = len(diplomas)
     n_experiences = len(exps)
 
+    # ---- Nouveau cours ----
+    course_title = course.get("title", "").strip().lower()
+
+    # ---- Similarité entre cours futur et cours passés ----
+    similarity_mean = 0
+    if past_courses and course_title:
+        past_titles = [c.get("title", "").lower() for c in past_courses if c.get("title")]
+        all_titles = past_titles + [course_title]
+
+        vectorizer = TfidfVectorizer().fit(all_titles)
+        tfidf = vectorizer.transform(all_titles)
+        sim_matrix = cosine_similarity(tfidf)
+
+        # Similarité du dernier (cours futur) avec tous les anciens
+        sims = sim_matrix[-1][:-1]
+        similarity_mean = float(np.mean(sims)) if len(sims) > 0 else 0
+
+    # ---- Sortie finale cohérente avec le modèle ----
     return {
         "course_title": course_title,
         "desc_len_words": desc_len_words,
@@ -68,6 +88,7 @@ def adapt_input(body):
         "has_industry_exp": has_industry_exp,
         "has_management_exp": has_management_exp,
         "has_academic_exp": has_academic_exp,
+        "similarity_mean": similarity_mean
     }
 
 
