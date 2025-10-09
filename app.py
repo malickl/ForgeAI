@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import joblib
 import pandas as pd
+import json
 
 # ===== Initialisation =====
 app = FastAPI(title="Satisfaction Prediction API")
@@ -30,15 +31,21 @@ class CourseInput(BaseModel):
 
 # ===== Endpoint principal =====
 @app.post("/api/predict")
-def predict_rating(data: CourseInput):
-    # Convertir les données en DataFrame
-    df = pd.DataFrame([data.dict()])
+async def predict_rating(request: Request):
+    try:
+        data_json = await request.json()
+        print("Received JSON:", json.dumps(data_json, indent=2))
+        data = CourseInput(**data_json)
+        # Convertir les données en DataFrame
+        df = pd.DataFrame([data.dict()])
 
-    # Prédiction avec le modèle
-    prediction = model.predict(df)[0]
+        # Prédiction avec le modèle
+        prediction = model.predict(df)[0]
 
-    # Retourner la note prédite
-    return {"predicted_satisfaction": round(float(prediction), 2)}
+        # Retourner la note prédite
+        return {"predicted_satisfaction": round(float(prediction), 2)}
+    except Exception as e:
+        return {"error": f"Prediction failed: {str(e)}"}
 
 # ===== Endpoint test =====
 @app.get("/")
