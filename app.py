@@ -6,7 +6,7 @@ import joblib
 # ===============================
 # ⚙️ Configuration
 # ===============================
-MODEL_PATH = "models/model_best.joblib"  # ou model.pkl selon ton fichier
+MODEL_PATH = "model_best.joblib"  # ou model.pkl selon ton fichier
 model = joblib.load(MODEL_PATH)
 
 app = FastAPI(
